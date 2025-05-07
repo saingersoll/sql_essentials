@@ -8,7 +8,7 @@ EDS213: Databases and Data Management focused on how to store and manage environ
 
 This repository serves as a refresher from the course as it reviews essential commands and includes fun brain teasers to test understanding for the schema below. The data set is hosted by the [NSF Arctic Data Center](https://arcticdata.io) data repository. Further information on the Arctic Shorebird demographics network may be accessed here: <https://doi.org/10.18739/A2222R68W>
 
-![](images/asdn-er-diagram.png){width="500"}
+![](images/asdn-er-diagram.png)
 
 ### File Structure
 
