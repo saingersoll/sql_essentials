@@ -1,0 +1,110 @@
+---
+title: "db dplyr"
+---
+
+```{r set_up, message = FALSE}
+library(tidyverse)
+library(DBI)
+library(dbplyr)
+library(duckdb)
+```
+## Connect to Database
+```{r db_connect}
+# we are using 0.10 version of database, 0.9 will not work here
+conn <- DBI::dbConnect(duckdb::duckdb(), dbdir = "../week3/database.db") 
+
+```
+
+#### View tables in DB
+```{r}
+# need to provide the connection u want to list
+DBI::dbListTables(conn)
+```
+#### Select table in DB
+```{r}
+# pulling from db and storing as a table 
+species <- tbl(conn, "Species")
+
+species
+```
+#### SQL Query
+```{r}
+# We want all code that starts with the letter A, so we use %
+df <- dbGetQuery(conn, "SELECT * FROM Species WHERE Code LIKE 'a%' ")
+
+df
+```
+#### dbplyr
+
+This is a great way to learn SQL. This translates R into SQL using `show_query()`
+```{r}
+species %>% 
+  filter(Relevance == "Study species") %>% 
+  select(Code, Scientific_name) %>% 
+  show_query()
+
+```
+Now, let's actually make a df
+The full query of DB only happens when using `collect()`
+Otherwise, it's a lazy evaulation that optimizes memory storage
+Delay collect until Query is optimized
+```{r}
+species %>% 
+  filter(Relevance == "Study species") %>% 
+  select(Code, Scientific_name) %>% 
+  collect()
+```
+How many species do we have for each group?
+
+SELECT
+GROUP BY Relevance
+
+```{r}
+species_grouped <- species %>% 
+  group_by(Relevance) %>% 
+  # this isn't right
+  summarize(num_species = n()) %>% 
+  arrange(-num_species) %>% 
+  show_query()
+
+species_grouped
+```
+#### Mutate dbplyr
+
+We are going to add "X" at the beginning of Codes and update the code column using mutate
+```{r}
+mutate_df <- species %>% 
+  mutate(Code = paste0("X", Code)) %>% 
+  show_query()
+
+mutate_df
+
+# this only exists as an R object
+new_species_code <- species %>% 
+  mutate(Code = paste0("X", Code)) %>% 
+  collect()
+
+new_species_code
+```
+#### Join!
+```{r}
+eggs_db <- tbl(conn, "Bird_eggs") 
+
+nest_db <- tbl(conn, "Bird_nests")
+
+```
+
+#### Left join
+combine using Nest_ID
+```{r}
+join_df <- left_join(eggs_db, nest_db, by = c("Nest_ID", "Year", "Site", "Book_page")) %>% 
+  show_query()
+
+join_df
+```
+#### Closing the connection
+```{r}
+DBI::dbDisconnect(conn, shutdown = TRUE)
+```
+
+

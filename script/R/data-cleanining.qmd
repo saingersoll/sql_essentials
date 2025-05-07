@@ -1,0 +1,218 @@
+---
+title: "Data Cleaning"
+author: "Sofia Ingersoll"
+date: 2024-4-17 
+format: html
+---
+[GitHub Repo](https://github.com/saingersoll/bren-meds213-data-cleaning)
+
+We cleaned the Snow_cover column during class. Inspired by the steps we followed, the following steps were completed below in this quarto document:
+
+    Clean the Water_cover column to transform it into the correct data type and respect expectations for a percentage
+
+    Clean the Land_cover column to transform it into the correct data type and respect expectations for a percentage
+
+    Use the relationship between the three cover columns (Snow, Water, Land) to infer missing values where possible and recompute the Total_cover column
+
+    The code was output a csv file named all_cover_fixed_YOURNAME.csv in the data/processed folder
+
+Note: We recommend starting by importing the csv file with the corrected Snow_cover column (data/processed/snow_cover.csv) we generated during class 
+
+# Set Up
+```{r set_up, message = FALSE}
+# load library
+library(tidyverse)
+library(gt)
+
+# set directories
+datadir_processed <- "../data/processed/"
+
+# processed file name
+clean_snow_file <- "snow_cover.csv"
+
+# set chunk settings
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Load Data
+
+Objective: The value of `Total_cover` is expected to be 100 always because it is the sum of `Snow_cover`, `Water_cover`, and `Land_cover`. We will confirm below that all values in this column = 100. Any missing information from the other columns listed will be assigned values based on the information provided in each of those columns for that observation. 
+
+Let's load our preprocessed data where `Snow_cover` is clean
+```{r load_data}
+# Import the species
+snow_csv <- read_csv(file.path(datadir_processed, clean_snow_file),
+                           show_col_types = FALSE)
+head(snow_csv, 3) %>% 
+  gt()
+```
+
+
+# Clean `Water_cover` column
+```{r clean_water_cover}
+# let's take a look at the values in this column
+clean_water_cover <- snow_csv %>%
+  
+  # the section commented out is useful for checking our work
+  # it is not useful producing a processed df
+  
+  # our output at this point shows non-numeric values are present
+  # count(Water_cover) %>% 
+  #filter(is.na(as.numeric(Water_cover))) %>% 
+  
+  # let's clean up our data and remove these non-numeric values, symbols, and NAs
+  mutate(Water_cover = ifelse(Water_cover==".", NA, Water_cover),
+         Water_cover = ifelse(Water_cover=="-", NA, Water_cover),
+         Water_cover = ifelse(Water_cover=="n/a", NA, Water_cover),
+         Water_cover = ifelse(Water_cover=="unk", NA, Water_cover),
+         Water_cover = ifelse(Water_cover < 1 , "0", Water_cover),
+         Water_cover = ifelse(Water_cover > 100, NA, Water_cover),
+         Water_cover = as.numeric(Water_cover)
+  )
+
+head(clean_water_cover, 3) %>% 
+  gt()
+```
+# Clean `Land_cover` column
+```{r clean_land_cover}
+# let's take a look at the values in this column
+clean_land_cover <- clean_water_cover %>%
+   # the section commented out is useful for checking our work
+  # it is not useful producing a processed df
+  
+  # our output at this point shows non-numeric values are present
+  # count(Water_cover) %>% 
+  #filter(is.na(as.numeric(Water_cover))) %>% 
+  
+  # let's clean up our data and remove these non-numeric values, symbols, and NAs
+  mutate(Land_cover = ifelse(Land_cover==".", NA, Land_cover),
+         Land_cover = ifelse(Land_cover=="-", NA, Land_cover),
+         Land_cover = ifelse(Land_cover=="n/a", NA, Land_cover),
+         Land_cover = ifelse(Land_cover=="unk", NA, Land_cover),
+         Land_cover = ifelse(Land_cover < 1, "0", Land_cover),
+         Land_cover = ifelse(Land_cover > 100, NA, Land_cover),
+         Land_cover = as.numeric(Land_cover)
+  )
+
+head(clean_land_cover, 3) %>% 
+  gt()
+```
+
+# Clean `Total_cover` column
+
+The value of `Total_cover` is expected to be 100 always because it is the sum of `Snow_cover`, `Water_cover`, and `Land_cover`. We will confirm below that all values in this column = 100. Any missing information from the other columns listed will be assigned values based on the information provided in each of those columns for that observation. 
+
+```{r}
+clean_total_cover <- clean_land_cover %>%
+   # the section commented out is useful for checking our work
+  # it is not useful producing a processed df
+  
+  # our output at this point shows non-numeric values are present
+   #count(Total_cover) %>% 
+  #filter(is.na(as.numeric(Total_cover))) %>% 
+
+# let's clean up our data and remove these non-numeric values, symbols, and NAs
+  mutate(Total_cover = ifelse(Total_cover==".", NA, Total_cover),
+         Total_cover = ifelse(Total_cover=="-", NA, Total_cover),
+         Total_cover = ifelse(Total_cover=="n/a", NA, Total_cover),
+         Total_cover = ifelse(Total_cover=="unk", NA, Total_cover),
+         Total_cover = ifelse(Total_cover < 1, "0", Total_cover),
+         Total_cover = ifelse(Total_cover > 100, NA, Total_cover),
+         Total_cover = as.numeric(Total_cover)
+  )
+
+
+head(clean_total_cover, 3) %>% 
+  gt()
+```
+
+
+
+```{r clean_total_cover}
+# Function to automate filling in sparse observations
+fill_missing_values <- function(df) {
+  df <- df %>%
+    
+    # remove observations that do NOT contain enough info to fill
+    # aka no cover data across the board 
+    filter(!is.na(Snow_cover) & !is.na(Water_cover) & !is.na(Land_cover)) %>%
+
+    mutate(
+      # if sum columns contain na, calculate it using the relationship described above for total_cover
+      # coalesce function accesses column defined for non-missing value
+      # if the value is missing, the automate value applied in that instance is 0
+      Snow_cover = ifelse(is.na(Snow_cover), Total_cover - coalesce(Water_cover, 0) - coalesce(Land_cover, 0), Snow_cover),
+      Water_cover = ifelse(is.na(Water_cover), Total_cover - coalesce(Snow_cover, 0) - coalesce(Land_cover, 0), Water_cover),
+      Land_cover = ifelse(is.na(Land_cover), Total_cover - coalesce(Snow_cover, 0) - coalesce(Water_cover, 0), Land_cover),
+      # if tot cover na, use relationship to fill it in
+      Total_cover = ifelse(is.na(Total_cover), Snow_cover + Water_cover + Land_cover, Total_cover),
+    )
+  
+  return(df)
+}
+
+# Applying the function to clean_land_cover dataframe
+clean_cover <- fill_missing_values(clean_total_cover)
+```
+### Checking the function to fill sparse observations
+```{r check_work}
+# let's make sure we properly filled in the columns missing values
+sparse_observations <- clean_cover %>%
+# Check for rows where Total_cover, Snow_cover, Water_cover, or Land_cover contain NA
+  count(Total_cover, Snow_cover, Water_cover, Land_cover) %>% 
+  filter(is.na(as.numeric(Total_cover)),
+         Total_cover == 100 & (is.na(Snow_cover) & is.na(Water_cover) & is.na(Land_cover)))
+
+# our sparse observation df shows us no NAs are present!
+sparse_observations %>% 
+  gt()
+
+# let's double check it worked right
+# it needs more cleaning!
+unique(clean_cover$Total_cover)
+```
+
+```{r fixing_total_cover}
+fixing_values <- function(df) {
+  # Filter observations where Total_cover is not 100
+  df <- df %>%
+    filter(df$Total_cover != 100) 
+  
+  
+  # When no land is visible, calculate total_cover
+  df$Total_cover <- ifelse(is.na(df$Land_cover), ifelse((df$Snow_cover + df$Water_cover) == 100, 100, NA), df$Total_cover)
+  
+  # assign all remaining land cover NA values as 0
+  df$Land_cover <- case_when(is.na(df$Land_cover) ~ 0)
+  
+  
+  # Assign Total_cover - 100 to Land_cover when tot cover is < 100
+  df$Land_cover <- case_when(df$Total_cover < 100 ~ (100 - df$Total_cover))
+  
+  # Recalibrate Total_cover to reflect the sum of Snow_cover, Water_cover, and Land_cover
+  df$Total_cover <- df$Snow_cover + df$Water_cover + df$Land_cover
+  
+  
+  
+  return(df)
+}
+
+# Applying the function to clean_cover dataframe
+cleaned_cover <- fixing_values(clean_cover)
+```
+
+```{r check_total_cover}
+# peep table
+head(cleaned_cover, 3) %>% 
+  gt()
+```
+
+# Save Cleaned Table as `all_cover_fixed_singersoll.csv`
+
+We have 5199 observations in this table. The "convention" seems to be that `_` are used to separate the different parts of a name. Note that it is not clear what type of nomenclature reference is used to pull those names from.
+
+Let's write the presence table to a csv file:
+
+```{r save_csv}
+write_csv(cleaned_cover, file.path(datadir_processed, "all_cover_fixed_singersoll.csv"))
+```
