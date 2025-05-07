@@ -1,4 +1,4 @@
-# ![SQL database and script cartoon](images/sql.png){width="40"} SQL Essentials ![SQL database and script cartoon](images/sql.png){alt="SQL database and script cartoon" width="40"}
+# SQL Essentials
 
 ### Overview
 
