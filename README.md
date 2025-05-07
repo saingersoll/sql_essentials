@@ -25,7 +25,8 @@ Each respective `script` folder contains code relating SQL and the language labe
 |       ├── processed/
 |   ├── images/
 |   ├── .gitignore
-|   ├── READNE.md
+|   ├── README.md
+|   ├── README.html
 ```
 
 ### References
